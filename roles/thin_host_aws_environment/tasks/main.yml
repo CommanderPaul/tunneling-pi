@@ -1,0 +1,57 @@
+---
+# Reminder, aws creds must be set or it will use the default group in .aws file.
+
+- name: List Hosted Zones
+  route53_info:
+    query: hosted_zone
+    hosted_zone_method: list
+  register: hosted_zone_list
+
+- name: Add Trailing Dot to Domain Name
+  set_fact:
+    full_domain_name: "{{ hostvars['localhost']['domain_name']}}."
+
+- name: Find and Set hosted_zone_id
+  set_fact:
+    hosted_zone_id: "{{ item.Id.split('/')[2] }}"
+  when: item.Name == full_domain_name
+  loop: "{{ hosted_zone_list.HostedZones }}"
+
+- name: Set Stack Name
+  set_fact:
+    stack_name: "{{ full_domain_name | replace('.', '-') + subdomain_name }}"
+
+- name: Deploy Thin Host cloudformation
+  cloudformation:
+    stack_name: "{{ stack_name }}-cloudformation"
+    state: "{{ target_state }}"
+    aws_access_key: "{{ target_aws_access_key }}"
+    aws_secret_key: "{{ target_aws_secret_key }}"
+    region: "{{ target_region }}"
+    disable_rollback: false
+    template: roles/thin_host_aws_environment/files/aws_cloudformation.yml
+
+    template_parameters:
+      DomainName: "{{ domain_name }}"
+      SubdomainName: "{{ subdomain_name }}"
+      EnvironmentName: "{{ stack_name }}"
+      HomeIPAddress: "{{ localhost_external_ip_address }}/32"
+      KeyName: "{{ ec2_ssh_key_name }}"
+      HostedZoneId: "{{ hostvars['localhost']['hosted_zone_id'] }}"
+
+    tags:
+      Stack: "{{ stack_name }}-cloudformation"
+  register: cloutformation_deploy_output
+
+- name: Find and Set EIP address
+  set_fact:
+    eip_address: "{{item.physical_resource_id}}"
+  when: target_state == "present"
+            and item.logical_resource_id == "EIP"
+  loop: "{{ cloutformation_deploy_output.stack_resources }}"
+
+- name: Add host to group 'just_created'
+  add_host:
+    name: '{{ eip_address }}'
+    groups: just_created
+  when: target_state == "present"
