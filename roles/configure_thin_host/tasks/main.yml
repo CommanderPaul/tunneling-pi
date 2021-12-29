@@ -1,0 +1,21 @@
+---
+
+# TODO turn off X11Forwarding in sshd_config unless somehow AWS needs it?
+
+- name: Turn on GatewayPorts
+  lineinfile:
+    state: "{{ target_state }}"
+    path: /etc/ssh/sshd_config
+    regexp: '^#GatewayPorts no'
+    line: 'GatewayPorts yes'
+  notify:
+  - Restart sshd
+
+- name: Turn on ClientAliveInterval
+  lineinfile:
+    state: "{{ target_state }}"
+    path: /etc/ssh/sshd_config
+    regexp: '^#ClientAliveInterval 0'
+    line: 'ClientAliveInterval 1'
+  notify:
+  - Restart sshd
