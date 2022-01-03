@@ -1,0 +1,88 @@
+---
+# trying to install nginx and update the cache in the same step fails on first run
+- name: Update cache as a separate step
+  apt:
+    update_cache: yes
+
+- name: Update repo cache and install latest nginx
+  apt:
+    name: nginx
+    state: latest
+  notify:
+  - Restart nginx
+
+- name: Install certbot as snap
+  snap:
+    name: certbot
+    classic: yes
+
+- name: Prepare certbot command
+  file:
+    src: /snap/bin/certbot
+    dest: /usr/bin/certbot
+    state: link
+
+- name: Ensure default nginx site is not enabled 
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Look for existing certs
+  # cat on the end forces output to be zero when grep does not find string
+  shell: certbot certificates | grep 'No certificates found.' | cat
+  register: certbot_certs
+  changed_when: False
+
+- name: Check output for cert not found
+  set_fact:
+    certs_not_found: not_found
+  when: certbot_certs.stdout_lines | length > 0
+
+# TODO add rate limit
+# limit_req_zone $binary_remote_addr zone=web_rate_limit:10m rate=100r/s;
+# limit_req zone=web_rate_limit burst=5 nodelay;
+
+- name: Upload basic config for thin_host on nginx
+  copy:
+    content: |
+      
+      server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        root /var/www/html;
+        index index.html index.htm index.nginx-debian.html;
+        server_name {{ hostvars['localhost']['subdomain_name'] }}.{{ hostvars['localhost']['domain_name'] }};
+      
+        access_log /var/log/nginx/reverse-access.log;
+        error_log /var/log/nginx/reverse-error.log;
+
+        location / {
+                    
+                    proxy_pass http://127.0.0.1:3000;
+        }
+      }
+
+    dest: "/etc/nginx/sites-available/{{ hostvars['localhost']['subdomain_name'] }}.conf"
+    force: no # do not overwrite if it already exists, even if text doesn't match
+  notify:
+  - Restart nginx
+
+- name: Link config file
+  file:
+    src: "/etc/nginx/sites-available/{{ hostvars['localhost']['subdomain_name'] }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ hostvars['localhost']['subdomain_name'] }}.conf"
+    state: link
+
+- name: Ensure nginx started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: If no certs present, request new from certbot
+  # certbot looks in sites-available for a conf file matching --domains <domainName>
+  shell: "certbot --nginx --non-interactive --agree-tos -m {{ hostvars['localhost']['certbot_email_address'] }} -d {{ hostvars['localhost']['subdomain_name'] }}.{{ hostvars['localhost']['domain_name'] }}"
+  when: certs_not_found is defined # no certs found
+  register: certbot_output
+  notify:
+  - Restart nginx
