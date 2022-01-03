@@ -1,14 +1,10 @@
 ---
-
 - name: Generate admin ssh key for Raspberry Pi
   openssh_keypair:
     path: "{{ hostvars['localhost']['ssh_key_directory'] }}{{ hostvars['localhost']['stack_name'] }}-pi-admin"
     state: "{{target_state}}"
     force: no
   register: admin_key
-
-- debug:
-    msg: "{{ admin_key }}"
 
 - name: Set Raspberry Pi admin public key and path
   set_fact:
