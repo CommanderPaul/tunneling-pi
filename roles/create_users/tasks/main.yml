@@ -1,0 +1,25 @@
+---
+- name: Add programmer
+  user:
+    name: "{{ hostvars['localhost']['pi_programmer_username'] }}"
+    shell: /bin/bash
+    state: "{{ hostvars['localhost']['target_state'] }}"
+
+- name: Set authorized key for programmer
+  authorized_key:
+    user: "{{ hostvars['localhost']['pi_programmer_username'] }}"
+    state: "{{ hostvars['localhost']['target_state'] }}"
+    key: "{{ hostvars['localhost']['programmer_public_key'] }}"
+
+- name: Add tunneler
+  user:
+    name: tunneler
+    shell: /bin/bash
+    generate_ssh_key: yes
+    state: "{{ hostvars['localhost']['target_state'] }}"
+  register: tunneler_user
+
+- name: Set tunneler public key
+  set_fact:
+    cacheable: yes
+    tunneler_public_key: "{{ tunneler_user.ssh_public_key }}"
