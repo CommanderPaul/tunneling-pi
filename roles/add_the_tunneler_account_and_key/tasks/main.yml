@@ -1,0 +1,13 @@
+- name: Add tunneler to thin host
+  user:
+    name: tunneler
+    shell: /bin/bash
+    generate_ssh_key: no
+    state: present
+
+# push tunneler public key to thin_host
+- name: Set authorized key for tunneler
+  authorized_key:
+    user: tunneler
+    state: present
+    key: "{{ hostvars['secure_pi']['tunneler_public_key']  }}"
