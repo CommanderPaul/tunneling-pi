@@ -1,0 +1,52 @@
+---
+- name: Actions from Localhost
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: no
+  vars:
+    target_state: present
+    target_region: us-west-2
+  roles:
+    - set_playbook_facts
+    - thin_host_aws_environment
+    - configure_raspberry_pi_keys
+
+# After securing, this host becomes unreachable
+# TODO write script to improve unreachable response and so we can turn off gather facts
+- name: Actions from Raspberry Pi with Default Username and Password
+  hosts: unsecure_pi
+  ignore_unreachable: True
+  gather_facts: True
+  become: yes
+  vars:
+    target_state: "{{ hostvars['localhost']['target_state'] }}"
+  roles:
+    - role: create_admin_user
+      when: hostvars['unsecure_pi'].ansible_processor is defined
+    - role: secure_sshd_config
+      when: hostvars['unsecure_pi'].ansible_processor is defined
+
+- name: Actions from Raspberry Pi with SSH Key
+  hosts: secure_pi
+  gather_facts: no
+  become: yes
+  vars:
+    target_state: "{{ hostvars['localhost']['target_state'] }}"
+  roles:
+    - create_users
+    - update_and_install
+    - setup_express
+
+- name: Actions from EC2
+  hosts: just_created
+  remote_user: ubuntu
+  gather_facts: false
+  become: yes
+  vars:
+    target_state: "{{ hostvars['localhost']['target_state'] }}"
+  roles:
+    - role: install_nginx # includes certbot
+      when: target_state == 'present'
+    - add_the_tunneler_account_and_key      
+    - configure_thin_host
