@@ -1,0 +1,29 @@
+---
+
+- name: Generate admin ssh key for Raspberry Pi
+  openssh_keypair:
+    path: "{{ hostvars['localhost']['ssh_key_directory'] }}{{ hostvars['localhost']['stack_name'] }}-pi-admin"
+    state: "{{target_state}}"
+    force: no
+  register: admin_key
+
+- debug:
+    msg: "{{ admin_key }}"
+
+- name: Set Raspberry Pi admin public key and path
+  set_fact:
+    cacheable: yes
+    admin_public_key: "{{ admin_key.public_key }}"
+    admin_private_key_path: "{{ admin_key.filename }}"
+
+- name: Generate programmer ssh key for Raspberry Pi
+  openssh_keypair:
+    path: "{{ hostvars['localhost']['ssh_key_directory'] }}{{ hostvars['localhost']['stack_name'] }}-pi-programmer"
+    state: "{{target_state}}"
+    force: no
+  register: programmer_key
+
+- name: Set Raspberry Pi programmer public key
+  set_fact:
+    cacheable: yes
+    programmer_public_key: "{{ programmer_key.public_key }}"
