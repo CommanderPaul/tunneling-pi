@@ -1,0 +1,51 @@
+---
+- name: update the cache
+  apt:
+   update_cache: yes
+
+- name: upgrade all packages
+  apt:
+    upgrade: full
+    force_apt_get: yes
+
+- name: perform autoclean
+  apt:
+    autoclean: yes
+    force_apt_get: yes
+
+- name: perform autoremove
+  apt:
+    autoremove: yes
+    force_apt_get: yes
+
+- name: ensure vim is installed
+  apt:
+   name: vim
+   state: present
+
+- name: ensure git is installed
+  apt:
+   name: git
+   state: present
+
+- name: ensure nodejs is installed
+  apt:
+   name: nodejs
+   state: present
+
+- name: ensure npm is installed
+  apt:
+   name: npm
+   state: present
+
+- name: Set hostname
+  hostname:
+    name: "{{ hostvars['localhost']['pi_hostname'] }}"
+
+# https://serverfault.com/questions/363095/why-does-my-hostname-appear-with-the-address-127-0-1-1-rather-than-127-0-0-1-in
+- name: configure local dns in hosts file
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^127.0.1.1'
+    line: "127.0.1.1  \t {{ hostvars['localhost']['pi_hostname'] }}"
+    state: present
