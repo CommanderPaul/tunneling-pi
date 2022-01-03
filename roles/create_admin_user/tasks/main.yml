@@ -1,0 +1,26 @@
+---
+- name: Add pi admin
+  user:
+    name: "{{ hostvars['localhost']['pi_admin_username'] }}"
+    # TODO do we need this?
+    # password: "{{ hostvars['localhost']['pi_admin_password'] | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups:
+      - sudo
+    append: yes
+    state: "{{ hostvars['localhost']['target_state'] }}"
+
+- name: Set authorized key
+  authorized_key:
+    user: "{{ hostvars['localhost']['pi_admin_username'] }}"
+    state: "{{ hostvars['localhost']['target_state'] }}"
+    key: "{{ hostvars['localhost']['admin_public_key'] }}"
+
+- name: add block for user in sudoers
+  blockinfile:
+    path: /etc/sudoers
+    state: "{{ hostvars['localhost']['target_state'] }}"
+    block: |
+      "{{ hostvars['localhost']['pi_admin_username'] }}" ALL=(ALL) NOPASSWD: ALL
+    backup: yes
+    validate: visudo -cf %s
