@@ -1,0 +1,6 @@
+---
+- name: Install express
+  npm:
+    name: express
+    global: yes
+    state: present
